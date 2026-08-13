@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrollytelling con Anime.js</title>
+    <style>
+        /* Resettiamo i margini e diamo uno sfondo scuro */
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            background-color: #111; 
+        }
+
+        /* Questa classe crea lo "spazio fisico" per poter scrollare. 
+           500vh significa che la pagina è alta 5 volte il tuo schermo. */
+        .scroll-space {
+            height: 500vh; 
+        }
+
+        /* Il Canvas è incollato al centro dello schermo e non si muove mai */
+        canvas {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+
+        /* Testo di caricamento visibile solo all'inizio */
+        #loader {
+            position: fixed;
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            color: white; 
+            font-family: Arial, sans-serif;
+            z-index: 10; /* Sta sopra al canvas */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">Caricamento frame: <span id="progress">0</span>%</div>
+    
+    <!-- 
+      Imposta width e height con la risoluzione nativa dei tuoi render WebP 
+      (qui ho usato 1920x1080 come esempio) 
+    -->
+    <canvas id="myCanvas" width="1920" height="1080"></canvas>
+    
+    <!-- Div vuoto che allunga la pagina per permettere lo scroll -->
+    <div class="scroll-space"></div>
+
+    <!-- Importiamo la libreria Anime.js dal suo CDN ufficiale -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        const loader = document.getElementById('loader');
+        const progressEl = document.getElementById('progress');
+
+        // Impostiamo i tuoi frame specifici
+        const startFrame = 665;
+        const endFrame = 765;
+        const totalFrames = endFrame - startFrame + 1;
+        
+        const images = []; // Qui salveremo le immagini caricate
+        let loadedCount = 0;
+
+        // Questo è il "finto oggetto" che daremo in pasto ad Anime.js
+        const animState = {
+            frame: startFrame
+        };
+
+        // 1. FASE DI PRE-LOADING
+        for (let i = startFrame; i <= endFrame; i++) {
+            const img = new Image();
+            
+            // padStart(4, '0') trasforma il numero 665 nella stringa "0665"
+            const fileName = `${i.toString().padStart(4, '0')}.webp`;
+            
+            // Percorso aggiornato per puntare alla cartella "assets"
+            img.src = `assets/${fileName}`; 
+
+            img.onload = () => {
+                loadedCount++;
+                progressEl.innerText = Math.floor((loadedCount / totalFrames) * 100);
+
+                // Quando l'ultimo frame è caricato, nascondiamo il testo e partiamo
+                if (loadedCount === totalFrames) {
+                    initAnimation();
+                }
+            };
+            
+            // Gestione errore nel caso un'immagine manchi o il percorso sia sbagliato
+            img.onerror = () => {
+                loader.innerText = `Errore: Impossibile trovare assets/${fileName}`;
+            };
+            
+            images.push(img);
+        }
+
+        // 2. FASE DI ANIMAZIONE E COLLEGAMENTO ALLO SCROLL
+        function initAnimation() {
+            loader.style.display = 'none';
+
+            // Disegniamo subito il primo frame sul canvas
+            ctx.drawImage(images[0], 0, 0, canvas.width, canvas.height);
+
+            // Creiamo l'animazione con Anime.js
+            const scrollAnim = anime({
+                targets: animState,
+                frame: endFrame,
+                round: 1, // Fondamentale: i numeri dei frame devono essere interi, senza decimali
+                easing: 'linear', // Nessuna accelerazione o freno iniziale/finale
+                duration: 1000, // Usiamo 1000ms come scala di riferimento base
+                autoplay: false, // BLOCCATO: non parte da solo, lo guidiamo noi con lo scroll
+                update: function() {
+                    // Ad ogni scatto, puliamo il canvas e disegniamo il frame corretto
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // L'array parte da 0, quindi sottraggo il frame di partenza (es. 665 - 665 = indice 0)
+                    const index = animState.frame - startFrame;
+                    ctx.drawImage(images[index], 0, 0, canvas.width, canvas.height);
+                }
+            });
+
+            // Ascoltiamo l'evento dello scorrimento della pagina
+            window.addEventListener('scroll', () => {
+                // Calcoliamo lo spazio totale scrollabile
+                const maxScroll = document.body.scrollHeight - window.innerHeight;
+                
+                // Otteniamo una percentuale da 0.0 (cima) a 1.0 (fondo)
+                const scrollPercent = window.scrollY / maxScroll;
+
+                // Usiamo anime.seek() per mandare l'animazione esattamente a quel punto
+                scrollAnim.seek(scrollAnim.duration * scrollPercent);
+            });
+        }
+    </script>
+</body>
+</html>
