@@ -58,20 +58,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 
     <script>
-        const canvas = document.getElementById('myCanvas');
-        const ctx = canvas.getContext('2d');
-        const loader = document.getElementById('loader');
-        const progressEl = document.getElementById('progress');
-
-        // Impostiamo i tuoi frame specifici
-        const startFrame = 0001;
-        const endFrame = 0700;
+// Impostiamo i frame corretti (evitiamo gli zeri davanti per non incorre in problemi numerici)
+        const startFrame = 1;
+        const endFrame = 700;
         const totalFrames = endFrame - startFrame + 1;
         
-        const images = []; // Qui salveremo le immagini caricate
+        const images = []; 
         let loadedCount = 0;
 
-        // Questo è il "finto oggetto" che daremo in pasto ad Anime.js
         const animState = {
             frame: startFrame
         };
@@ -79,24 +73,18 @@
         // 1. FASE DI PRE-LOADING
         for (let i = startFrame; i <= endFrame; i++) {
             const img = new Image();
-            
-            // padStart(4, '0') trasforma il numero 665 nella stringa "0665"
             const fileName = `${i.toString().padStart(4, '0')}.webp`;
-            
-            // Percorso aggiornato per puntare alla cartella "assets"
             img.src = `assets/${fileName}`; 
 
             img.onload = () => {
                 loadedCount++;
                 progressEl.innerText = Math.floor((loadedCount / totalFrames) * 100);
 
-                // Quando l'ultimo frame è caricato, nascondiamo il testo e partiamo
                 if (loadedCount === totalFrames) {
                     initAnimation();
                 }
             };
             
-            // Gestione errore nel caso un'immagine manchi o il percorso sia sbagliato
             img.onerror = () => {
                 loader.innerText = `Errore: Impossibile trovare assets/${fileName}`;
             };
@@ -108,36 +96,39 @@
         function initAnimation() {
             loader.style.display = 'none';
 
-            // Disegniamo subito il primo frame sul canvas
             ctx.drawImage(images[0], 0, 0, canvas.width, canvas.height);
 
-            // Creiamo l'animazione con Anime.js
             const scrollAnim = anime({
                 targets: animState,
                 frame: endFrame,
-                round: 1, // Fondamentale: i numeri dei frame devono essere interi, senza decimal
-                easing: 'linear', // Nessuna accelerazione o freno iniziale/finale
-                duration: 1000, // Usiamo 1000ms come scala di riferimento base
-                autoplay: false, // BLOCCATO: non parte da solo, lo guidiamo noi con lo scroll
+                round: 1, 
+                easing: 'linear', 
+                duration: 1000, 
+                autoplay: false, 
                 update: function() {
-                    // Ad ogni scatto, puliamo il canvas e disegniamo il frame corretto
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    
-                    // L'array parte da 0, quindi sottraggo il frame di partenza (es. 665 - 665 = indice 0)
                     const index = animState.frame - startFrame;
-                    ctx.drawImage(images[index], 0, 0, canvas.width, canvas.height);
+                    // Sicurezza extra per evitare indici out-of-bounds
+                    if(images[index]) {
+                        ctx.drawImage(images[index], 0, 0, canvas.width, canvas.height);
+                    }
                 }
             });
 
-            // Ascoltiamo l'evento dello scorrimento della pagina
+            // Ascoltiamo l'evento dello scorrimento della pagina con correzione per il fondo
             window.addEventListener('scroll', () => {
-                // Calcoliamo lo spazio totale scrollabile
                 const maxScroll = document.body.scrollHeight - window.innerHeight;
                 
-                // Otteniamo una percentuale da 0.0 (cima) a 1.0 (fondo)
-                const scrollPercent = window.scrollY / maxScroll;
+                // Evitiamo divisioni per zero nel caso la pagina non sia scrollabile
+                if (maxScroll <= 0) return;
 
-                // Usiamo anime.seek() per mandare l'animazione esattamente a quel punto
+                let scrollPercent = window.scrollY / maxScroll;
+
+                // Forza il 100% se siamo vicinissimi alla fine (risolve il bug del mancato arrivo all'ultimo frame)
+                if (window.scrollY >= maxScroll - 2) {
+                    scrollPercent = 1.0;
+                }
+
                 scrollAnim.seek(scrollAnim.duration * scrollPercent);
             });
         }
