@@ -58,9 +58,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 
     <script>
-// Impostiamo i frame corretti (evitiamo gli zeri davanti per non incorre in problemi numerici)
-        const startFrame = 0001;
-        const endFrame = 0700;
+const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        const loader = document.getElementById('loader');
+        const progressEl = document.getElementById('progress'); // <--- Ripristinato qui!
+
+        // Definiamo i frame di partenza e arrivo (mantenendo la logica delle stringhe con zeri)
+        const startFrame = 1;
+        const endFrame = 700;
         const totalFrames = endFrame - startFrame + 1;
         
         const images = []; 
@@ -73,7 +78,10 @@
         // 1. FASE DI PRE-LOADING
         for (let i = startFrame; i <= endFrame; i++) {
             const img = new Image();
+            
+            // Mantiene il formato a 4 cifre es. 0001, 0002... 0700
             const fileName = `${i.toString().padStart(4, '0')}.webp`;
+            
             img.src = `assets/${fileName}`; 
 
             img.onload = () => {
@@ -108,23 +116,22 @@
                 update: function() {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     const index = animState.frame - startFrame;
-                    // Sicurezza extra per evitare indici out-of-bounds
-                    if(images[index]) {
+                    
+                    if (images[index]) {
                         ctx.drawImage(images[index], 0, 0, canvas.width, canvas.height);
                     }
                 }
             });
 
-            // Ascoltiamo l'evento dello scorrimento della pagina con correzione per il fondo
+            // Ascoltiamo l'evento dello scorrimento della pagina con fix per l'ultimo frame
             window.addEventListener('scroll', () => {
                 const maxScroll = document.body.scrollHeight - window.innerHeight;
                 
-                // Evitiamo divisioni per zero nel caso la pagina non sia scrollabile
                 if (maxScroll <= 0) return;
 
                 let scrollPercent = window.scrollY / maxScroll;
 
-                // Forza il 100% se siamo vicinissimi alla fine (risolve il bug del mancato arrivo all'ultimo frame)
+                // Forza il 100% esatto se siamo vicinissimi al fondo (garantisce l'arrivo al frame 0700)
                 if (window.scrollY >= maxScroll - 2) {
                     scrollPercent = 1.0;
                 }
